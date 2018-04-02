@@ -12,7 +12,7 @@ import (
 
 const (
 	HOME_ENV     = "HOME"
-	CFG_FILENAME = ".shbconfig"
+	CFG_FILENAME = ".wwconfig"
 )
 
 type Config struct {
