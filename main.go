@@ -46,6 +46,11 @@ func main() {
 	var configs []Config
 	json.Unmarshal(data, &configs)
 
+	if len(os.Args) == 1 {
+		fmt.Println("Wadsworth: Your friendly neighborhood SSH butler.\nFor information on how to use Wadsworth, type `ww help`")
+		os.Exit(1)
+	}
+
 	args := os.Args[1:]
 
 	if args[0] == "add" {
@@ -132,6 +137,12 @@ func main() {
 		if err != nil {
 			log.Fatal("Error writing to file. Exiting...")
 		}
+	} else if args[0] == "help" {
+		fmt.Println("Welcome to Wadsworth, your friendly neighborhood SSH butler. To use Wadsworth, type:\n\tww <command>\nThe list of available commands are:")
+		fmt.Println("\tww add <short_name> <username>@<domain>: Adds a new entry for quick access")
+		fmt.Println("\tww remove <short_name>: Removes entry with name <short_name>")
+		fmt.Println("\tww edit <short_name> <new_username>@<new_domain>: Edits <short_name> with new domain and username")
+		fmt.Println("\tww <short_name>: Launches SSH process with <username>@<domain> associated with <short_name>")
 	} else {
 		if len(args) != 1 {
 			fmt.Println("Invalid operation.\n\tFormat: shb <name>\n\tType shb help for more information...")
