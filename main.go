@@ -105,6 +105,33 @@ func main() {
 		}
 	} else if args[0] == "edit" {
 		// TODO
+		if len(args) != 3 {
+			fmt.Println("Invalid operation.\n\tFormat: shb edit <name> <new_username>@<new_domain>\n\tType shb help for more information...")
+			os.Exit(1)
+		}
+
+		newDomainAfterSplit := strings.Split(args[2], "@")
+		if len(newDomainAfterSplit) == 1 {
+			fmt.Println("Enter a valid domain in the format <username>@<domain>")
+			os.Exit(1)
+		}
+
+		for idx, _ := range configs {
+			if args[1] == configs[idx].Name {
+				configs[idx].Username = newDomainAfterSplit[0]
+				configs[idx].Domain = newDomainAfterSplit[1]
+			}
+		}
+
+		confs, err := json.Marshal(configs)
+		if err != nil {
+			log.Fatal("Error marshalling JSON object. Exiting...")
+		}
+
+		err = ioutil.WriteFile(CFG_FILENAME, confs, 0755)
+		if err != nil {
+			log.Fatal("Error writing to file. Exiting...")
+		}
 	} else {
 		if len(args) != 1 {
 			fmt.Println("Invalid operation.\n\tFormat: shb <name>\n\tType shb help for more information...")
