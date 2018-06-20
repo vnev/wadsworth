@@ -3,93 +3,119 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fatih/color"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
 const (
 	HOME_ENV     = "HOME"
 	CFG_FILENAME = ".wwconfig"
+	DEFAULT_PORT = "22"
+	DEFAULT_IDEN = "id_rsa"
 )
 
 type Config struct {
 	Name     string `json:"name"`
 	Domain   string `json:"domain"`
 	Username string `json:"username"`
+	Identity string `json:"identity"`
+	Port     string `json:"port"`
 }
 
 func main() {
 	homePath, exists := os.LookupEnv(HOME_ENV)
 	if !exists {
-		log.Fatal("Could not find environment variable HOME. Cannot proceed with setup. Exiting...")
+		color.Red("Could not find environment variable HOME. Cannot proceed with setup. Exiting...")
+		os.Exit(1)
 	}
 
 	chdirErr := os.Chdir(homePath)
 	if chdirErr != nil {
-		log.Fatal("A problem occurred when trying to access the config file. Exiting...")
+		color.Red("A problem occurred when trying to access the config file. Exiting...")
+		os.Exit(1)
 	}
 
 	configFile, err := os.OpenFile(CFG_FILENAME, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
-		log.Fatal("Error opening the config file. Exiting...")
+		color.Red("Error opening the config file. Exiting...")
+		os.Exit(1)
 	}
 	configFile.Close()
 
 	data, err := ioutil.ReadFile(CFG_FILENAME)
 	if err != nil {
-		log.Fatal("Could not find config file. Exiting...")
+		color.Red("Could not find config file. Exiting...")
+		os.Exit(1)
 	}
 
 	var configs []Config
 	json.Unmarshal(data, &configs)
 
 	if len(os.Args) == 1 {
-		fmt.Println("Wadsworth: Your friendly neighborhood SSH butler.\nFor information on how to use Wadsworth, type `ww help`")
+		color.Yellow("Wadsworth: Your friendly neighborhood SSH butler.\nFor information on how to use Wadsworth, type `ww help`")
 		os.Exit(1)
 	}
 
 	args := os.Args[1:]
 
 	if args[0] == "add" {
-		if len(args) != 3 {
-			fmt.Println("Invalid operation.\n\tFormat: shb add <name> <username>@<domain>\n\tType shb help for more information...")
+		if len(args) < 3 {
+			color.Red("Invalid operation.\n\tFormat: ww add <name> <username>@<domain>[<port>] [optional: <identity_file>]\n\tType ww help for more information...")
 			os.Exit(1)
 		}
 
 		var newEntry Config
 		for _, conf := range configs {
 			if args[1] == conf.Name {
-				fmt.Printf("Name %s is already in use", conf.Name)
+				color.Red("Name %s is already in use", conf.Name)
 				os.Exit(1)
 			}
 		}
 
 		domainAfterSplit := strings.Split(args[2], "@")
 		if len(domainAfterSplit) == 1 {
-			fmt.Println("Enter a valid domain in the format <username>@<domain>")
+			color.Red("Enter a valid domain in the format <username>@<domain>[<port>]")
 			os.Exit(1)
 		}
 
 		newEntry.Name = args[1]
 		newEntry.Username = domainAfterSplit[0]
-		newEntry.Domain = domainAfterSplit[1]
+
+		if strings.Contains(domainAfterSplit[1], ":") {
+			spl := strings.Split(domainAfterSplit[1], ":")
+			newEntry.Domain = spl[0]
+			newEntry.Port = spl[1]
+		} else {
+			newEntry.Domain = domainAfterSplit[1]
+			newEntry.Port = DEFAULT_PORT
+		}
+
+		if len(args) == 4 {
+			newEntry.Identity = args[3]
+		} else {
+			newEntry.Identity = DEFAULT_IDEN
+		}
+
 		configs = append(configs, newEntry)
 
 		confs, err := json.Marshal(configs)
 		if err != nil {
-			log.Fatal("Error marshalling JSON object. Exiting...")
+			color.Red("Error marshalling JSON object. Exiting...")
+			os.Exit(1)
 		}
 
 		err = ioutil.WriteFile(CFG_FILENAME, confs, 0755)
 		if err != nil {
-			log.Fatal("Error writing to file. Exiting...")
+			color.Red("Error writing to file. Exiting...")
+			os.Exit(1)
 		}
 	} else if args[0] == "remove" {
 		if len(args) != 2 {
-			fmt.Println("Invalid operation.\n\tFormat: shb remove <name>\n\tType shb help for more information...")
+			color.Red("Invalid operation.\n\tFormat: ww remove <name>\n\tType ww help for more information...")
 			os.Exit(1)
 		}
 
@@ -101,51 +127,140 @@ func main() {
 
 		confs, err := json.Marshal(configs)
 		if err != nil {
-			log.Fatal("Error marshalling JSON object. Exiting...")
+			color.Red("Error marshalling JSON object. Exiting...")
+			os.Exit(1)
 		}
 
 		err = ioutil.WriteFile(CFG_FILENAME, confs, 0755)
 		if err != nil {
-			log.Fatal("Error writing to file. Exiting...")
+			color.Red("Error writing to file. Exiting...")
+			os.Exit(1)
 		}
 	} else if args[0] == "edit" {
 		// TODO
 		if len(args) != 3 {
-			fmt.Println("Invalid operation.\n\tFormat: shb edit <name> <new_username>@<new_domain>\n\tType shb help for more information...")
+			color.Red("Invalid operation.\n\tFormat: ww edit <name> <new_username>@<new_domain>:[<port>]\n\tType ww help for more information...")
 			os.Exit(1)
 		}
 
 		newDomainAfterSplit := strings.Split(args[2], "@")
 		if len(newDomainAfterSplit) == 1 {
-			fmt.Println("Enter a valid domain in the format <username>@<domain>")
+			color.Red("Enter a valid domain in the format <username>@<domain>:[<port>]")
 			os.Exit(1)
 		}
 
 		for idx, _ := range configs {
 			if args[1] == configs[idx].Name {
 				configs[idx].Username = newDomainAfterSplit[0]
-				configs[idx].Domain = newDomainAfterSplit[1]
+
+				if strings.Contains(newDomainAfterSplit[1], ":") {
+					spl := strings.Split(newDomainAfterSplit[1], ":")
+					configs[idx].Domain = spl[0]
+					configs[idx].Port = spl[1]
+				} else {
+					configs[idx].Domain = newDomainAfterSplit[1]
+					configs[idx].Port = DEFAULT_PORT
+				}
 			}
 		}
 
 		confs, err := json.Marshal(configs)
 		if err != nil {
-			log.Fatal("Error marshalling JSON object. Exiting...")
+			color.Red("Error marshalling JSON object. Exiting...")
+			os.Exit(1)
 		}
 
 		err = ioutil.WriteFile(CFG_FILENAME, confs, 0755)
 		if err != nil {
-			log.Fatal("Error writing to file. Exiting...")
+			color.Red("Error writing to file. Exiting...")
+			os.Exit(1)
 		}
 	} else if args[0] == "help" {
-		fmt.Println("Welcome to Wadsworth, your friendly neighborhood SSH butler. To use Wadsworth, type:\n\tww <command>\nThe list of available commands are:")
-		fmt.Println("\tww add <short_name> <username>@<domain>: Adds a new entry for quick access")
-		fmt.Println("\tww remove <short_name>: Removes entry with name <short_name>")
-		fmt.Println("\tww edit <short_name> <new_username>@<new_domain>: Edits <short_name> with new domain and username")
-		fmt.Println("\tww <short_name>: Launches SSH process with <username>@<domain> associated with <short_name>")
+		color.Yellow("Welcome to Wadsworth, your friendly neighborhood SSH butler. To use Wadsworth, type:\n\tww <command>")
+		color.Red("\tThe list of available commands are ([] indicates optional parameters):\n")
+		color.Set(color.FgGreen, color.Bold)
+		fmt.Print("\tww add <short_name> <username>@<domain>[<port>] [<identity_file>]: ")
+		color.Unset()
+		fmt.Println("Adds a new entry for quick access")
+
+		color.Set(color.FgGreen, color.Bold)
+		fmt.Print("\tww remove <short_name>: ")
+		color.Unset()
+		fmt.Println("Removes entry with name <short_name>")
+
+		color.Set(color.FgGreen, color.Bold)
+		fmt.Print("\tww edit <short_name> <new_username>@<new_domain>[<port>]: ")
+		color.Unset()
+		fmt.Println("Edits <short_name> with new domain and username")
+
+		color.Set(color.FgGreen, color.Bold)
+		fmt.Print("\tww <short_name>: ")
+		color.Unset()
+		fmt.Println("Launches SSH process with configuration associated with <short_name>")
+
+		color.Set(color.FgGreen, color.Bold)
+		fmt.Print("\tww show [<short_name>]: ")
+		color.Unset()
+		fmt.Println("Shows either all or one particular configuration")
+	} else if args[0] == "show" {
+		if len(args) == 2 {
+			for _, conf := range configs {
+				if args[1] == conf.Name {
+					color.Set(color.FgYellow, color.Bold)
+					fmt.Println("[" + conf.Name + "]")
+					color.Unset()
+					color.Set(color.FgGreen)
+					fmt.Print("\tUsername: ")
+					color.Unset()
+					fmt.Println("\t" + conf.Username)
+					color.Set(color.FgGreen)
+					fmt.Print("\tDomain: ")
+					color.Unset()
+					fmt.Println("\t" + conf.Domain)
+					if conf.Port != DEFAULT_PORT {
+						color.Set(color.FgGreen)
+						fmt.Print("\tPort: ")
+						color.Unset()
+						fmt.Println("\t" + conf.Port)
+					}
+					if conf.Identity != DEFAULT_IDEN {
+						color.Set(color.FgGreen)
+						fmt.Print("\tIdentity File: ")
+						color.Unset()
+						fmt.Println("\t" + filepath.Join(os.Getenv("HOME"), ".ssh", conf.Identity))
+					}
+				}
+			}
+		} else {
+			for _, conf := range configs {
+				color.Set(color.FgYellow, color.Bold)
+				fmt.Println("[" + conf.Name + "]")
+				color.Unset()
+				color.Set(color.FgGreen)
+				fmt.Print("\tUsername: ")
+				color.Unset()
+				fmt.Println("\t" + conf.Username)
+				color.Set(color.FgGreen)
+				fmt.Print("\tDomain: ")
+				color.Unset()
+				fmt.Println("\t" + conf.Domain)
+				if conf.Port != DEFAULT_PORT {
+					color.Set(color.FgGreen)
+					fmt.Print("\tPort: ")
+					color.Unset()
+					fmt.Println("\t" + conf.Port)
+				}
+				if conf.Identity != DEFAULT_IDEN {
+					color.Set(color.FgGreen)
+					fmt.Print("\tIdentity File: ")
+					color.Unset()
+					fmt.Println("\t" + filepath.Join(os.Getenv("HOME"), ".ssh", conf.Identity))
+				}
+			}
+		}
 	} else {
 		if len(args) != 1 {
-			fmt.Println("Invalid operation.\n\tFormat: shb <name>\n\tType shb help for more information...")
+			color.Red("Invalid operation.\n\tFormat: ww <name>\n\tType ww help for more information...")
 			os.Exit(1)
 		}
 
@@ -154,7 +269,8 @@ func main() {
 			if args[0] == conf.Name {
 				found = true
 				cmdStr := conf.Username + "@" + conf.Domain
-				cmd := exec.Command("ssh", cmdStr)
+				arguments := []string{"-i", filepath.Join(os.Getenv("HOME"), ".ssh", conf.Identity), "-p", conf.Port, cmdStr}
+				cmd := exec.Command("ssh", arguments...)
 				cmd.Stdout = os.Stdout
 				cmd.Stdin = os.Stdin
 				cmd.Stderr = os.Stderr
@@ -163,7 +279,7 @@ func main() {
 		}
 
 		if found == false {
-			fmt.Printf("Could not find %s. Exiting...", args[0])
+			color.Red("Could not find %s. Exiting...", args[0])
 			os.Exit(1)
 		}
 	}
