@@ -176,7 +176,10 @@ func main() {
 			os.Exit(1)
 		}
 	} else if args[0] == "help" {
-		color.Yellow("Welcome to Wadsworth, your friendly neighborhood SSH butler. To use Wadsworth, type:\n\tww <command>")
+		color.Yellow("Say hello to Wadsworth, your friendly neighborhood SSH butler.")
+		color.Set(color.FgYellow, color.Bold)
+		fmt.Println("\tTo use Wadsworth, type: ww <command>\n")
+		color.Unset()
 		color.Red("\tThe list of available commands are ([] indicates optional parameters):\n")
 		color.Set(color.FgGreen, color.Bold)
 		fmt.Print("\tww add <short_name> <username>@<domain>[<port>] [<identity_file>]: ")
