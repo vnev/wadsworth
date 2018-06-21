@@ -178,7 +178,7 @@ func main() {
 	} else if args[0] == "help" {
 		color.Yellow("Say hello to Wadsworth, your friendly neighborhood SSH butler.")
 		color.Set(color.FgYellow, color.Bold)
-		fmt.Println("\tTo use Wadsworth, type: ww <command>\n")
+		fmt.Println("\tTo use Wadsworth, type: ww <command> [<extra_arguments>]\n")
 		color.Unset()
 		color.Red("\tThe list of available commands are ([] indicates optional parameters):\n")
 		color.Set(color.FgGreen, color.Bold)
@@ -262,7 +262,7 @@ func main() {
 			}
 		}
 	} else {
-		if len(args) != 1 {
+		if len(args) < 1 {
 			color.Red("Invalid operation.\n\tFormat: ww <name>\n\tType ww help for more information...")
 			os.Exit(1)
 		}
@@ -273,6 +273,9 @@ func main() {
 				found = true
 				cmdStr := conf.Username + "@" + conf.Domain
 				arguments := []string{"-i", filepath.Join(os.Getenv("HOME"), ".ssh", conf.Identity), "-p", conf.Port, cmdStr}
+				if len(os.Args) > 2 { 
+					arguments = append(arguments, os.Args[2:]...)
+				}
 				cmd := exec.Command("ssh", arguments...)
 				cmd.Stdout = os.Stdout
 				cmd.Stdin = os.Stdin
