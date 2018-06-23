@@ -202,10 +202,10 @@ func main() {
 		fmt.Println("Launches SSH process with configuration associated with <short_name>")
 
 		color.Set(color.FgGreen, color.Bold)
-		fmt.Print("\tww show [<short_name>]: ")
+		fmt.Print("\tww ls [<short_name>]: ")
 		color.Unset()
-		fmt.Println("Shows either all or one particular configuration")
-	} else if args[0] == "show" {
+		fmt.Println("Lists either all or one particular configuration")
+	} else if args[0] == "ls" {
 		if len(args) == 2 {
 			for _, conf := range configs {
 				if args[1] == conf.Name {
@@ -273,7 +273,7 @@ func main() {
 				found = true
 				cmdStr := conf.Username + "@" + conf.Domain
 				arguments := []string{"-i", filepath.Join(os.Getenv("HOME"), ".ssh", conf.Identity), "-p", conf.Port, cmdStr}
-				if len(os.Args) > 2 { 
+				if len(os.Args) > 2 {
 					arguments = append(arguments, os.Args[2:]...)
 				}
 				cmd := exec.Command("ssh", arguments...)
